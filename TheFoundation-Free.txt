@@ -1,0 +1,783 @@
+local Repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(Repo .. "Library.lua"))()
+local SaveManager = loadstring(game:HttpGet(Repo .. "addons/SaveManager.lua"))()
+local ThemeManager = loadstring(game:HttpGet(Repo .. "addons/ThemeManager.lua"))()
+local RepStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local ClientMain = Players.LocalPlayer.PlayerGui:WaitForChild("NotBrokenUI").CLIENT_MAIN
+Players.LocalPlayer.PlayerGui.DescendantAdded:Connect(function(Object)
+    if Object.Name == "CLIENT_MAIN" and Object:IsA("LocalScript") then
+        ClientMain = Object
+    end
+end)
+local FPLoop = false
+local CageDone
+local FlySpeed
+local IsFlying = false
+local espCategories = {
+    Entity = false,
+    Objectives = false,
+    HidingSpots = false,
+    Doors = false,
+    Coins = false,
+}
+local LocalPlayer = Players.LocalPlayer
+local mouse = LocalPlayer:GetMouse()
+
+
+local FLYING = false
+local QEfly = true
+local iyflyspeed = 1
+local vehicleflyspeed = 1
+
+local flyKeyDown, flyKeyUp
+
+local function getRoot(char)
+	return char:FindFirstChild("HumanoidRootPart")
+end
+local TargetSpeed = 10
+local SPEED = 0
+function sFLY(vfly)
+	repeat task.wait() until LocalPlayer and LocalPlayer.Character and getRoot(LocalPlayer.Character) and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+
+	if flyKeyDown then flyKeyDown:Disconnect() end
+	if flyKeyUp then flyKeyUp:Disconnect() end
+
+	local character = LocalPlayer.Character
+	local root = getRoot(character)
+	local CONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
+	local lCONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
+	
+
+	local function FLY()
+		FLYING = true
+
+		local BG = Instance.new("BodyGyro")
+		BG.P = 9e4
+		BG.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+		BG.CFrame = root.CFrame
+		BG.Parent = root
+
+		local BV = Instance.new("BodyVelocity")
+		BV.Velocity = Vector3.zero
+		BV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+		BV.Parent = root
+
+		task.spawn(function()
+			while FLYING do
+				task.wait()
+
+				local camCF = workspace.CurrentCamera.CFrame
+				local moveVec = (camCF.LookVector * (CONTROL.F + CONTROL.B)) +
+					((camCF * CFrame.new(CONTROL.L + CONTROL.R, (CONTROL.Q + CONTROL.E) * 0.2, 0)).Position - camCF.Position)
+
+				if moveVec.Magnitude > 0 then
+					SPEED = TargetSpeed
+					BV.Velocity = moveVec.Unit * SPEED
+					lCONTROL = {F = CONTROL.F, B = CONTROL.B, L = CONTROL.L, R = CONTROL.R, Q = CONTROL.Q, E = CONTROL.E}
+				else
+					SPEED = 0
+					BV.Velocity = Vector3.zero
+				end
+
+				BG.CFrame = camCF
+
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if humanoid and not vfly then
+					humanoid.PlatformStand = true
+				end
+			end
+
+			CONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
+			lCONTROL = {F = 0, B = 0, L = 0, R = 0, Q = 0, E = 0}
+			SPEED = 0
+			BG:Destroy()
+			BV:Destroy()
+
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid.PlatformStand = false
+			end
+		end)
+	end
+
+	flyKeyDown = mouse.KeyDown:Connect(function(key)
+		key = key:lower()
+		local speed = vfly and vehicleflyspeed or iyflyspeed
+
+		if key == "w" then
+			CONTROL.F = speed
+		elseif key == "s" then
+			CONTROL.B = -speed
+		elseif key == "a" then
+			CONTROL.L = -speed
+		elseif key == "d" then
+			CONTROL.R = speed
+		elseif QEfly and key == "e" then
+			CONTROL.Q = speed * 2
+		elseif QEfly and key == "q" then
+			CONTROL.E = -speed * 2
+		end
+
+		pcall(function()
+			workspace.CurrentCamera.CameraType = Enum.CameraType.Track
+		end)
+	end)
+
+	flyKeyUp = mouse.KeyUp:Connect(function(key)
+		key = key:lower()
+
+		if key == "w" then
+			CONTROL.F = 0
+		elseif key == "s" then
+			CONTROL.B = 0
+		elseif key == "a" then
+			CONTROL.L = 0
+		elseif key == "d" then
+			CONTROL.R = 0
+		elseif key == "e" then
+			CONTROL.Q = 0
+		elseif key == "q" then
+			CONTROL.E = 0
+		end
+	end)
+
+	FLY()
+end
+
+function NOFLY()
+	FLYING = false
+	if flyKeyDown then flyKeyDown:Disconnect() end
+	if flyKeyUp then flyKeyUp:Disconnect() end
+
+	local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = false
+	end
+
+	pcall(function()
+		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	end)
+end
+local allTrackedESPs = {}
+
+local function updateESPVisibility()
+    for _, data in pairs(allTrackedESPs) do
+        local shouldBeVisible = espCategories[data.Category]
+        if shouldBeVisible then
+            data.ESP:Show()
+        else
+            data.ESP:Hide()
+        end
+    end
+end
+
+
+local IsCaged = false
+
+
+for _, Item in getgc(false) do
+    if typeof(Item) == "function" and getinfo(Item).name == "minigameComplete" then
+    warn("Found")
+    CageDone = Item
+        old = hookfunction(Item, function(...)
+            
+            IsCaged = false
+            old(...)
+        end)
+    end
+end
+
+local Options = Library.Options
+Options.MenuKeybind = "P"
+local Toggles = Library.Toggles
+
+Library.ForceCheckbox = false 
+Library.ShowToggleFrameInKeybinds = true
+
+local Window = Library:CreateWindow({
+	
+
+	Title = "Vortex Hub丨Free",
+	Footer = "[Game]:The Foundation(Game) [QQ]:1037164658",
+	Icon = no,
+	NotifySide = "Right",
+	ShowCustomCursor = false
+
+})
+
+local Tabs = {
+	Main = Window:AddTab("主要", "user"),
+    Visuals = Window:AddTab("视觉", "camera"),
+	Exploits = Window:AddTab("外挂", "shield-alert"),
+}
+
+local LeftGroupBox = Tabs.Main:AddLeftGroupbox("<b>本地玩家</b>")
+local WSLoopEnabled = false
+local WSLoopVal = 16
+LeftGroupBox:AddToggle("WSEnable", {
+	Text = "启用移速",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		WSLoopEnabled = Value
+	end,
+})
+
+LeftGroupBox:AddToggle("Fly", {
+    Text = "飞行",
+    Default = false,
+    Callback = function(Value)
+		IsFlying = Value
+        if Value then
+            NOFLY()
+		    wait()
+		    sFLY()
+        else
+            NOFLY()
+        end
+	end,
+}):AddKeyPicker("FlyKey", {
+    Mode = "Toggle",
+    Default = "F",
+    Text = "飞行",
+    SyncToggleState = true
+})
+local JumpTog =LeftGroupBox:AddToggle("Jump", {
+	Text = "启用跳跃",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		if Players.LocalPlayer.Character then
+            Players.LocalPlayer.Character:SetAttribute("AllowedToJump", Value)
+        end
+	end,
+})
+local Noclipping
+local Clip = true
+local RunService = game:GetService("RunService")
+LeftGroupBox:AddToggle("Noclip", {
+	Text = "穿墙",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		if Value == false then
+            if Noclipping then
+		        Noclipping:Disconnect()
+	        end
+            for _, child in pairs(Players.LocalPlayer.Character:GetDescendants()) do
+		    	if child:IsA("BasePart") and child.CanCollide == false and child.Name ~= "Head" then
+		    		child.CanCollide = true
+		    	end
+		    end
+	        Clip = true
+        else
+            Clip = false
+	        wait(0.1)
+	        local function NoclipLoop()
+		        if Clip == false and Players.LocalPlayer.Character ~= nil then
+		    	    for _, child in pairs(Players.LocalPlayer.Character:GetDescendants()) do
+		    		    if child:IsA("BasePart") and child.CanCollide == true then
+		    			    child.CanCollide = false
+		    		    end
+		    	    end
+		        end
+	        end
+	        Noclipping = RunService.Stepped:Connect(NoclipLoop)
+        end
+
+       
+	end,
+})
+
+LeftGroupBox:AddSlider("WSSlider", {
+	Text = "移动速度",
+	Default = WSLoopVal,
+	Min = 5,
+	Max = 100,
+	Rounding = 1,
+	Compact = true,
+
+	Callback = function(Value)
+		WSLoopVal = Value
+	end,
+
+	Disabled = false, 
+	Visible = true, 
+})
+
+LeftGroupBox:AddSlider("FSpeed", {
+	Text = "飞行速度",
+	Default = 16,
+	Min = 10,
+	Max = 300,
+	Rounding = 1,
+	Compact = true,
+
+	Callback = function(Value)
+		TargetSpeed = Value
+	end,
+
+	Disabled = false, 
+	Visible = true, 
+})
+task.spawn(function()
+    while wait() do
+        if WSLoopEnabled and Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            Players.LocalPlayer.Character.Humanoid.WalkSpeed = WSLoopVal
+        end
+        if IsFlying and not FPLoop then
+            for _, Obj in Players.LocalPlayer.Character:GetDescendants() do
+                if Obj.Name == "Handle" then
+                    Obj.Transparency = 1
+                    pcall(function()
+                        Obj.LocalTransparencyModifier = 1
+                    end)
+                end
+            end
+        end
+    end
+end)
+local InstaRact = false
+LeftGroupBox:AddToggle("InstantInteract", {
+	Text = "即时互动",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		InstaRact = Value
+        if Value == false then
+            for _, Prompt in workspace:GetDescendants() do
+                if Prompt:IsA("ProximityPrompt") and Prompt:GetAttribute("OrigHold") ~= nil then
+                    Prompt.HoldDuration = Prompt:GetAttribute("OrigHold")
+                end
+            end
+        elseif Value == true then
+            for _, Prompt in workspace:GetDescendants() do
+                if Prompt:IsA("ProximityPrompt") then
+                    Prompt:SetAttribute("OrigHold", Prompt.HoldDuration)
+                    Prompt.HoldDuration = 0
+                end
+            end
+        end
+	end,
+})
+
+workspace.DescendantAdded:Connect(function(Prompt)
+    if Prompt:IsA("ProximityPrompt") and InstaRact then
+        Prompt:SetAttribute("OrigHold", Prompt.HoldDuration)
+        Prompt.HoldDuration = 0
+    end
+end)
+
+local RightGroupBox = Tabs.Main:AddRightGroupbox("<b>快速按钮</b>")
+RightGroupBox:AddButton({
+	Text = "大厅",
+	Func = function()
+		RepStorage.Events.PlayerActions.LeaveToLobby:FireServer()
+	end,
+	DoubleClick = true,
+
+	Disabled = false,
+	Visible = true,
+})
+RightGroupBox:AddButton({
+	Text = "再玩一次",
+	Func = function()
+		RepStorage.Events.PlayerActions.PlayAgain:FireServer()
+	end,
+	DoubleClick = true,
+
+	Disabled = false,
+	Visible = true,
+})
+RightGroupBox:AddButton({
+	Text = "重置人物",
+	Func = function()
+		RepStorage.Events.EntityEvents.DamageFromClient:FireServer({
+            AttackedBy = "Unknown", 
+            IsSet = true, 
+            IgnoresHide = false, 
+            Damage = 0
+        })
+	end,
+	DoubleClick = true,
+
+	Disabled = false,
+	Visible = true,
+})
+
+local LeftGroupBox = Tabs.Visuals:AddLeftGroupbox("<b>常规</b>")
+LeftGroupBox:AddToggle("Fullbright", {
+	Text = "全亮",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		if Value == true then
+            Lighting.Brightness = 3
+            Lighting.GlobalShadows = false
+        elseif Value == false then
+            Lighting.Brightness = 0
+            Lighting.GlobalShadows = true
+        end
+	end,
+})
+LeftGroupBox:AddToggle("NoFog", {
+	Text = "无雾",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		if Value == true then
+            Lighting.Atmosphere.Density = 0
+        elseif Value == false then
+            Lighting.Atmosphere.Density = 0.6
+        end
+	end,
+})
+
+LeftGroupBox:AddToggle("FP", {
+	Text = "第三人称",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+        FPLoop = Value
+		if Value == true then
+            if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                ClientMain.Scripts.cameraMain.Enabled = false
+                workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+                Players.LocalPlayer.Character.Humanoid.AutoRotate = true
+                Players.LocalPlayer.CameraMaxZoomDistance = 10
+                Players.LocalPlayer.CameraMinZoomDistance = 10
+            end
+        elseif Value == false then
+            if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                ClientMain.Scripts.cameraMain.Enabled = true
+            end
+        end
+	end,
+}):AddKeyPicker("KeyPicker", {
+	Default = "V", 
+	SyncToggleState = true,
+
+	Mode = "Toggle", 
+
+	Text = "第三人称", 
+	NoUI = false, 
+})
+
+task.spawn(function()
+    while wait() do
+        if FPLoop and Players.LocalPlayer.Character then
+            Players.LocalPlayer.Character.Head.Transparency = 0
+            Players.LocalPlayer.Character.Head.LocalTransparencyModifier = 0
+            for _, Obj in Players.LocalPlayer.Character:GetDescendants() do
+                if Obj.Name == "face" or Obj.Name == "Handle" then
+                    Obj.Transparency = 0
+                    pcall(function()
+                        Obj.LocalTransparencyModifier = 0
+                    end)
+                end
+            end
+        end
+    end
+end)
+local NotifyEntities = {"Rush", "Screech", "Ram", "Ambush", "Hordebats", "Eyes", "Stare", "Onslaught"}
+local NotifyEntitiesInternal = {}
+local RightGroupBox = Tabs.Visuals:AddRightGroupbox("<b>通知</b>")
+for _, Entity in NotifyEntities do
+    NotifyEntitiesInternal[Entity] = false
+    RightGroupBox:AddToggle("Notify" .. Entity, {
+	    Text = "通知" .. Entity,
+
+	    Default = false,
+	    Disabled = false, 
+	    Visible = true, 
+
+	    Callback = function(Value)
+		   NotifyEntitiesInternal[Entity] = Value
+	    end,
+    })
+end
+local LeftGroupBox = Tabs.Visuals:AddLeftGroupbox("<b>ESP</b>")
+local ESPTracersEnabled: boolean = true
+LeftGroupBox:AddToggle("ESPTracers", {
+	Text = "追踪线",
+
+	Default = false,
+	Disabled = false, 
+	Visible = true, 
+
+	Callback = function(Value)
+		ESPTracersEnabled = Value
+	end,
+})
+local ESPThings = {"实体", "物品", "门", "隐藏点", "钱"}
+for _, Thing in ESPThings do
+    LeftGroupBox:AddToggle("ESP" .. Thing, {
+	    Text = "透视" .. Thing,
+
+	    Default = false,
+	    Disabled = false, 
+	    Visible = true, 
+
+	    Callback = function(Value)
+		   espCategories[Thing] = Value
+           updateESPVisibility()
+	    end,
+    })
+end
+local LeftGroupBox = Tabs.Exploits:AddLeftGroupbox("<b>漏洞</b>")
+LeftGroupBox:AddButton({
+	Text = "跳过监狱电脑部分",
+	Func = function()
+        if ClientMain and ClientMain.CLIENT.Values.CurrentRoom.Value.Name == "Room150" then
+            RepStorage.Events.ThePrision.FinishedTerminal:FireServer()
+        else
+            Library:Notify("你必须在第150房间!")
+        end
+	end,
+
+	Disabled = false,
+	Visible = true,
+})
+
+local PartialGod = false
+LeftGroupBox:AddToggle("PartialGod", {
+	Text = "无限治疗",
+
+	Default = false,
+	Disabled = false, 
+	Visible = false, 
+
+	Callback = function(Value)
+		PartialGod = Value
+	end,
+})
+
+local AutoCage = false
+local DoConLoop = false
+LeftGroupBox:AddToggle("AutoCage", {
+	Text = "自动逃脱观察者笼子",
+
+	Default = false,
+	Disabled = false, 
+	Visible = false, 
+
+	Callback = function(Value)
+        DoConLoop = Value
+        if Value then
+            for _, Connection in getconnections(RepStorage.Events.ThePrision.PlayerCaged.OnClientEvent) do
+                Connection:Disable()
+            end
+        else
+            for _, Connection in getconnections(RepStorage.Events.ThePrision.PlayerCaged.OnClientEvent) do
+                Connection:Enable()
+            end
+        end
+	end,
+})
+
+task.spawn(function()
+    while wait() do
+        if DoConLoop then
+            for _, Connection in getconnections(RepStorage.Events.ThePrision.PlayerCaged.OnClientEvent) do
+                Connection:Disable()
+            end
+        else
+            for _, Connection in getconnections(RepStorage.Events.ThePrision.PlayerCaged.OnClientEvent) do
+                Connection:Enable()
+            end
+        end
+    end
+end)
+
+RepStorage.Events.ThePrision.PlayerCaged.OnClientEvent:Connect(function()
+    if not AutoCage then return end
+    task.wait(4)
+    RepStorage.Events.ThePrision.MinigameFinished:FireServer()
+end)
+task.spawn(function()
+    while wait() do
+        if PartialGod then
+            RepStorage.Events.EntityEvents.DamageFromClient:FireServer({
+                AttackedBy = "Blacklight", 
+                IsSet = true, 
+                IgnoresHide = false, 
+                Damage = math.huge
+            })
+        end
+    end
+end)
+local RightGroupBox = Tabs.Exploits:AddRightGroupbox("<b>防实体</b>")
+local AntiEntity = {"Blacklight", "Screech", "Void", "Decoy"}
+local AntiEntityInternal = {}
+for _, Entity in AntiEntity do
+    AntiEntityInternal[Entity] = false
+    RightGroupBox:AddToggle("Anti" .. Entity, {
+	    Text = "防-" .. Entity,
+
+	    Default = false,
+	    Disabled = false, 
+	    Visible = true, 
+
+	    Callback = function(Value)
+            if Entity == "Screech" and Value == false and ClientMain then
+                ClientMain.CLIENT.Values.ScreechActive.Value = false
+            end
+            if Entity == "Decoy" and Value == false then
+                for _, Obj in workspace:GetDescendants() do
+                    if Obj.Name == "AttackRange" then
+                        Obj.CanTouch = true
+                    end
+                end
+            end
+		   AntiEntityInternal[Entity] = Value
+	    end,
+    })
+end
+
+workspace.DescendantAdded:Connect(function(Obj)
+    if Obj.Name == "AttackRange" and AntiEntityInternal["Decoy"] then
+        Obj.CanTouch = false
+    end
+end)
+
+task.spawn(function()
+    while wait() do
+        if AntiEntityInternal["Screech"] then
+            ClientMain.CLIENT.Values.ScreechActive.Value = true
+        end
+    end
+end)
+
+task.spawn(function()
+    while wait() do
+        if workspace:FindFirstChild("WanderWatcher") then
+            workspace.WanderWatcher:FindFirstChild("PickupArea", true).CanTouch = not AntiEntityInternal["Watcher"]
+        end
+    end
+end)
+
+
+old = hookfunction(require(ClientMain.CLIENT.CurrentRoomDependency.Modules.Void).VoidPlayer, function(...)
+    if AntiEntityInternal["Void"] then
+        return
+    else
+        return old(...)
+    end
+end)
+
+task.spawn(function()
+    while wait() do
+        workspace.GameInfo.BlacklightDisabled.Value = AntiEntityInternal["Blacklight"]
+    end
+end)
+
+workspace.ChildAdded:Connect(function(Object)
+    if Object.Name == 'Eyes' and NotifyEntitiesInternal["Eyes"] then
+        Library:Notify('Eyes已生成!')
+    end
+    if Object.Name == 'Stare' and NotifyEntitiesInternal["Stare"] then
+        Library:Notify('Stare已生成!')
+    end
+    if Object.Name == 'Ram' and NotifyEntitiesInternal["Ram"] then
+        Library:Notify('Ram已生成!')
+    end
+    if Object.Name == 'Ambush' and NotifyEntitiesInternal["Ambush"] then
+        Library:Notify('Ambush已生成!')
+    end
+    if Object.Name == 'Rush' and NotifyEntitiesInternal["Rush"] then
+        Library:Notify('Rush已生成!')
+    end
+if Object.Name == 'Hoardbat' and NotifyEntitiesInternal["Hoardbat"] then
+        Library:Notify('Hoardbat已生成!')
+    end
+end)
+
+workspace.DescendantAdded:Connect(function(Object)
+    if Object.Name == 'ScreechAHHHH' and NotifyEntitiesInternal["Screech"] then
+        Library:Notify('Screech已生成!')
+    end
+end)
+
+workspace.GameInfo.HoardbatsActive:GetPropertyChangedSignal("Value"):Connect(function()
+    if workspace.GameInfo.HoardbatsActive.Value == true and NotifyEntitiesInternal["Hoardbats"] then
+        Library:Notify('Hoardbats已生成!')
+    end
+end)
+
+workspace.GameInfo.LureActive:GetPropertyChangedSignal("Value"):Connect(function()
+    if workspace.GameInfo.LureActive.Value == true and NotifyEntitiesInternal["Onslaught"]then
+        Library:Notify('Onslaught已生成!')
+    end
+end)
+
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("菜单")
+
+MenuGroup:AddToggle("KeybindMenuOpen", {
+	Default = Library.KeybindFrame.Visible,
+	Text = "打开键位菜单",
+	Callback = function(value)
+		Library.KeybindFrame.Visible = value
+	end,
+})
+MenuGroup:AddToggle("ShowCustomCursor", {
+	Text = "自定义光标",
+	Default = true,
+	Callback = function(Value)
+		Library.ShowCustomCursor = Value
+	end,
+})
+MenuGroup:AddDropdown("NotificationSide", {
+	Values = { "左", "右" },
+	Default = "右",
+
+	Text = "通知位置",
+
+	Callback = function(Value)
+		Library:SetNotifySide(Value)
+	end,
+})
+MenuGroup:AddDropdown("DPIDropdown", {
+	Values = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+	Default = "100%",
+
+	Text = "DPI缩放",
+
+	Callback = function(Value)
+		Value = Value:gsub("%%", "")
+		local DPI = tonumber(Value)
+
+		Library:SetDPIScale(DPI)
+	end,
+})
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("菜单键位")
+	:AddKeyPicker("MenuKeybind", { Default = "RightShift", NoUI = false, Text = "菜单键位" })
+
+
+Library.ToggleKeybind = Options.MenuKeybind
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
