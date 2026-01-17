@@ -495,8 +495,8 @@ local ARTargetReach = 205
 RightGroupBox:AddSlider("ARRoomReach", {
 	Text = "到达房间",
 	Default = ARTargetReach,
-	Min = 102,
-	Max = 205,
+	Min = 101,
+	Max = 204,
 	Rounding = 0,
 	Compact = true,
 
