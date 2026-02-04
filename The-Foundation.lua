@@ -1,6 +1,3 @@
--- Script by Vortex
--- Thanks for using
-
 local Repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 if not firetouchinterest or not hookfunction or not fireproximityprompt then
     game:GetService("Players").LocalPlayer:Kick("So sorry, your executor is not supported ):")
@@ -254,7 +251,7 @@ LeftGroupBox:AddToggle("WSEnable", {
 
 LeftGroupBox:AddToggle("Fly", {
     Text = "启用飞行",
-    Default = false,
+	Default = false,
     Callback = function(Value)
 		IsFlying = Value
         if Value then
@@ -290,6 +287,8 @@ end
 --[[LeftGroupBox:AddToggle("AI", {
     Text = "自动互动",
     Default = false,
+    Disabled = false, 
+	Visible = true,
     Callback = function(value)
         dai_enabled = value
         toggle_proximity_connections(not value)
@@ -407,7 +406,7 @@ LeftGroupBox:AddSlider("FSpeed", {
 	end,
 
 	Disabled = false, 
-	Visible = true, 
+	Visible = false, 
 })
 task.spawn(function()
     while wait() do
@@ -491,12 +490,12 @@ RightGroupBox:AddButton({
 })
 
 local RightGroupBox = Tabs.Main:AddLeftGroupbox("<b>自动房间(测试)</b>")
-local ARTargetReach = 205
+local ARTargetReach = 203
 RightGroupBox:AddSlider("ARRoomReach", {
 	Text = "到达房间",
 	Default = ARTargetReach,
 	Min = 101,
-	Max = 204,
+	Max = 203,
 	Rounding = 0,
 	Compact = true,
 
@@ -807,7 +806,7 @@ end
 for _, Trigger in AntiTrigger do
     AntiTriggerInternal[Trigger] = false
     LeftGroupBox:AddToggle("Anti" .. Trigger, {
-	    Text = "防止" .. Trigger,
+	    Text = "防-" .. Trigger,
 
 	    Default = false,
 	    Disabled = false, 
@@ -872,15 +871,6 @@ LeftGroupBox:AddButton({
 
 	Disabled = false,
 	Visible = true,
-})
-LeftGroupBox:AddButton({
-	Text = "功德+1🤓",
-	Func = function()
-       shared.giveIt()
-	end,
-
-	Disabled = false,
-	Visible = false,
 })
 local function get_latest_room()
     local rooms_folder = workspace:FindFirstChild("GeneratedRooms")
@@ -1074,7 +1064,7 @@ local AntiEntity = {"Blacklight", "Screech", "Void", "Decoy"}
 for _, Entity in AntiEntity do
     AntiEntityInternal[Entity] = false
     RightGroupBox:AddToggle("Anti" .. Entity, {
-	    Text = "防" .. Entity,
+	    Text = "防-" .. Entity,
 
 	    Default = false,
 	    Disabled = false, 
